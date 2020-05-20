@@ -14,17 +14,23 @@
 """
 __author__ = 'JHao'
 
-import sys
 import platform
-from werkzeug.wrappers import Response
+import sys
+
+import requests
+from bs4 import BeautifulSoup
 from flask import Flask, jsonify, request
+from werkzeug.wrappers import Response
 
 sys.path.append('../')
 
 from Config.ConfigGetter import config
 from Manager.ProxyManager import ProxyManager
+from Util.LogHandler import LogHandler
+from Util.WebRequest import WebRequest
 
 app = Flask(__name__)
+logger = LogHandler('proxy_api')
 
 
 class JsonResponse(Response):
@@ -43,7 +49,8 @@ api_list = {
     # 'refresh': u'refresh proxy pool',
     'get_all': u'get all proxy from proxy pool',
     'delete?proxy=127.0.0.1:8080': u'delete an unable proxy',
-    'get_status': u'proxy number'
+    'get_status': u'proxy number',
+    'view?site=baidu.com': u'use proxy to view a page',
 }
 
 
@@ -83,6 +90,42 @@ def delete():
 def getStatus():
     status = ProxyManager().getNumber()
     return status
+
+
+@app.route('/view/')
+def view():
+    site = request.args.get('site', 'http://www.baidu.com')
+    if not site.startswith('http://'):
+        site = 'http://' + site
+
+    proxy = ProxyManager().get()
+    if proxy is None:
+        return 'no avaliable proxy to use'
+
+    proxy = proxy.proxy
+    logger.info('using proxy {} to view site {}'.format(proxy, site))
+
+    try:
+        # use proxy to get target page
+        proxies = {
+            "http": "http://{proxy}".format(proxy=proxy),
+            "https": "http://{proxy}".format(proxy=proxy),
+        }
+        headers = WebRequest().header
+        res = requests.get(site, proxies=proxies, headers=headers, timeout=5)
+
+        # add proxy info to the top of html
+        html = BeautifulSoup(res.text, 'lxml')
+        info = BeautifulSoup('''
+            <div style='position:absolute;z-index:999999;background-color:white;font-size=20px'>
+                <p>using proxy: {}  status code: {}</p>
+            <div>'''.format(proxy, res.status_code), 'lxml')
+        html.body.insert(0, info.div)
+        return str(html.html), {'Content-Type': 'text/html'}
+    except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+        return 'proxy {} timeout, please try again'.format(proxy)
+    except requests.exceptions.ProxyError:
+        return 'proxy {} error, please try again'.format(proxy)
 
 
 if platform.system() != "Windows":

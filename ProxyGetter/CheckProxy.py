@@ -12,9 +12,10 @@
 """
 __author__ = 'JHao'
 
+from getFreeProxy import GetFreeProxy
+
 from Util.LogHandler import LogHandler
 from Util.utilFunction import verifyProxyFormat
-from .getFreeProxy import GetFreeProxy
 
 log = LogHandler('check_proxy', file=False)
 

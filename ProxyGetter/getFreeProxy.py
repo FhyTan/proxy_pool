@@ -338,7 +338,7 @@ class GetFreeProxy(object):
 
 
 if __name__ == '__main__':
-    from .CheckProxy import CheckProxy
+    from CheckProxy import CheckProxy
 
     # CheckProxy.checkGetProxyFunc(GetFreeProxy.freeProxy01)
     # CheckProxy.checkGetProxyFunc(GetFreeProxy.freeProxy02)
